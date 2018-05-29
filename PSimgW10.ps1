@@ -2,12 +2,13 @@
 #copyright 2018, Daniel Ytterdal, All rights reserved
 
 
-#Require DSIM & Must be administrator
+#Require Must be administrator
 ##TODO TODO
 
-#Flush variables
+#set start variables
 $imgPath = ''
 $mntPath = ''
+$dismPath="c:\windows\system32\dism.exe"
 
 #Program menu
 function Show-Menu{
@@ -16,10 +17,10 @@ function Show-Menu{
         )
     cls
     Write-Host "====$Title===="
-   
-    Write-Host -nonewline "1: Set image path: "; if ($imgPath) {Write-Host -ForegroundColor Green '   OK:' $imgPath} else {write-host -ForegroundColor Red '   Error: Path not set'}
-    Write-Host -nonewline "2: Set mount path: "; if ($mntPath) {write-host -ForegroundColor Green '   OK:' $mntpath} else {write-host -ForegroundColor Red '   Error: Path not set'}
-    Write-Host "====================="
+    if (test-path $dismPath) {write-host -ForegroundColor Green "DISM installed at: $dismPath"} else {write-host -ForegroundColor Red "DISM not insatlled! - Please install DISM"} 
+    Write-Host -nonewline "1: Set image path: "; if ($imgPath) {Write-Host -ForegroundColor green '   OK:' $imgPath} else {write-host -ForegroundColor Red '   Error: Path not set'}
+    Write-Host -nonewline "2: Set mount path: "; if ($mntPath) {write-host -ForegroundColor green '   OK:' $mntpath} else {write-host -ForegroundColor Red '   Error: Path not set'}
+    Write-Host "========$status========"
     Write-Host "3: Mount image"
     Write-Host "4: Add a Update"
     Write-Host "5: Unmount image"
@@ -28,19 +29,24 @@ function Show-Menu{
 
 #LIFTOFF
 do{
+    $status = if ($imgPath -and $mntPath) {"UNLOCKED"} else {"LOCKED"}
     Show-Menu
     $input = Read-Host "Vælg 1-5 eller q for at afslutte"
+   
+    
     switch ($input){
 
         '1'{
+        cls
          $imgPath=Read-Host "fuld sti til image location: "
+         if (test-path $imgPath){write-host "Path OK"} else {write-host "Path error!"; $imgPath = ''}
             }
 
         '2'{
          cls
          $mntPath=Read-Host "fuld sti til mount location: "
+         if (test-path $mntPath){write-host "Path OK"} else {write-host "Path error!"; $mntPath = ''}
             }
-
         '3'{
          cls
          '3'
@@ -68,6 +74,7 @@ do{
          # Dism /Unmount-Image /MountDir:"C:\mount\windows" /Commit
 
             }
+
         'q'{
          return
             }
