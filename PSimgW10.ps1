@@ -1,4 +1,4 @@
-windows image script
+#windows image script
 #copyright 2018, Daniel Ytterdal, All rights reserved
 
 
@@ -6,8 +6,9 @@ windows image script
 ##TODO TODO
 
 #set start variables
-$imgPath = ''
-$mntPath = ''
+$imgPath = 'c:'
+$mntPath = 'c:'
+
 $dismPath="c:\windows\system32\dism.exe"
 
 $mntImage
@@ -29,7 +30,7 @@ function Show-Menu{
     Write-Host "3: Mount image"
     Write-Host "4: Add a Update"
     Write-Host "5: Unmount image"
-    } else {write-host "Please add valid (1) image path and (2) mount path`n"}
+    } else {write-host "Please add valid (1) image path and (2) mount path`n $status"}
 
     Write-host "Q: Quit"
 }
@@ -49,7 +50,6 @@ do{
          $imgPath=Read-Host "full path to image location, including wim: "
          if (test-path $imgPath){write-host "Path OK"} else {write-host "Path error!"; $imgPath = ''}
             }
-
         '2'{
          cls
          $mntPath=Read-Host "full path to mount location: "
@@ -63,16 +63,24 @@ do{
          Write-Host "1: Yes"
          write-host "2: No"
          $backupWim = Read-Host "Please select 1 or 2"
-         if ($backupWim -eq 1) {
+          switch ($backupWim) {
+            '1'{
             cls
-            Write-Host "Backing up WIM to NAME.wim.backup";
-            # copy "C:\Images\Win10_x64\sources\install.wim" C:\Images\install-backup.wim
+            Write-Host "Backing up $imgPath to $imgPath.backup"
+            Read-Host
+            # copy "$imgPath" "$imgPath.backup"
             } 
-            else {Write-Host "...Brave men do cry..."}
+            '2'{
+            Write-Host "...Brave men do cry..."
+            Read-Host
+            }
+            
+            default{Write-Host "Select 1 or 2"}
+            }
          cls
          write-host "mounting image"
          #mount image
-         # Dism /Mount-Image /ImageFile:"$imgPath\install.wim" /Index:1 /MountDir:"$mntPath" /Optimize
+         # Dism /Mount-Image /ImageFile:"$imgPath" /Index:1 /MountDir:"$mntPath" /Optimize
             }
         '4'{
          cls
