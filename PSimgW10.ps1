@@ -1,27 +1,29 @@
 #windows image script
 #copyright 2018, Daniel Ytterdal, All rights reserved
-Import-Module BitsTransfer
 
-#Require Must be administrator
+#Requires -RunAsAdministrator
+
+
+#Import module to create backup with processbar.
+Import-Module BitsTransfer
 
 #set start variables
 $imgPath = ''
 $mntPath = ''
-
-$dismPath="c:\windows\system32\dism.exe"
-
+$dismPath='C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\DISM\dism.exe'
+$dismVersion=(get-childitem $dismPath).VersionInfo.ProductVersion
 $mntImage = ''
-$updateLoc
-$addUpate
+$updateFile = ''
 
-#Program menu
+
+#Program menu - Lots of text and tests for eyecandy and stability.
 function Show-Menu{
     param(
     [string]$Title='WIM maintainer'
         )
     cls
     Write-Host "====$Title===="
-    if (test-path $dismPath) {write-host -ForegroundColor Green "DISM installed at: $dismPath"} else {write-host -ForegroundColor Red "DISM not insatlled! - Please install DISM"} 
+    Write-host -nonewline "DISM: "; if (test-path $dismPath) {write-host -nonewline -ForegroundColor Green "DISM OK - "} else {write-host -ForegroundColor Red "DISM not insatlled! - Please install DISM"}; if ($dismVersion -ge '10') {write-host -ForegroundColor Green "Version OK: $dismVersion"} else {write-host -ForegroundColor Red "DISM wrong version! - Please update DISM."; read-host; exit}
     Write-Host -nonewline "1: Image path: "; if ($imgPath) {Write-Host -ForegroundColor green '   OK:' $imgPath} else {write-host -ForegroundColor Red '   Error: Path not set'}
     Write-Host -nonewline "2: Mount path: "; if ($mntPath) {write-host -ForegroundColor green '   OK:' $mntpath} else {write-host -ForegroundColor Red '   Error: Path not set'}
     Write-Host ""
@@ -48,27 +50,21 @@ function Get-FileName($initialDirectory)
     $OpenFileDialog.filename
 }
 
-#Folder browser (thanks to https://stackoverflow.com/a/11412810)
-Function Select-FolderDialog
+#Folder browser (thanks to https://stackoverflow.com/a/25690250)
+Function Get-Folder($initialDirectory)
+
 {
-    param([string]$Description="Select Folder",[string]$RootFolder="Desktop")
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
 
- [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
-     Out-Null     
+    $foldername = New-Object System.Windows.Forms.FolderBrowserDialog
+    $foldername.rootfolder = "MyComputer"
 
-   $objForm = New-Object System.Windows.Forms.FolderBrowserDialog
-        $objForm.Rootfolder = $RootFolder
-        $objForm.Description = $Description
-        $Show = $objForm.ShowDialog()
-        If ($Show -eq "OK")
-        {
-            Return $objForm.SelectedPath
-        }
-        Else
-        {
-            Write-Error "Operation cancelled by user."
-        }
+    if($foldername.ShowDialog() -eq "OK")
+    {
+        $folder += $foldername.SelectedPath
     }
+    return $folder
+}
 
 
 #run program (Main <3 <3 )
@@ -79,7 +75,7 @@ do{
    
     ######### User input actions #########
     switch ($input){
-    ######### Path selection for image and mount point #########
+    ######### 1 + 2: Path selection for image and mount point #########
         '1'{
         cls
          Write-Host "Example: C:\Images\win10_x64\sources\install.wim"
@@ -90,11 +86,11 @@ do{
             }
         '2'{
          cls
-         $mntPath=Select-FolderDialog
+         $mntPath=Get-folder
          #$mntPath=Read-Host "full path to mount location: "
          if (test-path $mntPath){write-host "Path OK"} else {write-host "Path error!"; $mntPath = ''}
             }
-    ######### DISM selection #########
+    ######### 3. DISM selection #########
         '3'{
          cls
          #backup old image
@@ -104,36 +100,40 @@ do{
          $backupWim = Read-Host "Please select 1 or 2"
           if ($backupWim -eq 1) {
             cls
-            Write-Host "Backing up $imgPath to $imgPath.bak"
+            Write-Host "Backing up [$imgPath] to --> [$imgPath.bak]"
             Read-Host "Press Enter to start."
 
-            Start-BitsTransfer -Source "$imgPath" -Destination "$imgPath.bak" -Description "WIM Backup" -DisplayName "Creating WIM backup"
+            Start-BitsTransfer -Source "$imgPath" -Destination "$imgPath.bak" -Description "Transfering data to WIM Backup" -DisplayName "Creating WIM backup"
             
             } else {
             Write-Host "...Brave men do cry..."
             Read-Host
             }
          cls
-         write-host "mounting image"
+         write-host "Mounting image... Please wait"
          #mount image
-         #$mntImage=Dism /Mount-Image /ImageFile:"$imgPath" /Index:1 /MountDir:"$mntPath" /Optimize
-         $mntImage = 1; #DEBUG
-
+        &$dismPath /Mount-Image /ImageFile:"$imgPath" /Index:1 /MountDir:"$mntPath" /Optimize
+         $mntImage = 1
+         #$mntImage = 1; #DEBUG to test variable
             }
+    ######### 4. Add Update #########
         '4'{ 
          cls
-         
          #Add update
-         # Dism /Add-Package /Image:"C:\mount\windows" /PackagePath="windows10.0-kb4016871-x64_27dfce9dbd92670711822de2f5f5ce0151551b7d.msu"  /LogPath=C:\mount\dism.log
-
+         $updateFile = Get-FileName
+         write-host "Please wait... Applying update..."
+         &$dismPath /Add-Package /Image:"$mntPath" /PackagePath="$updateFile" /LogPath="$mntPath\dism.log"
+         write-host "Update applied. locking the image update."
+         
          #lock updates
-         # DISM /Cleanup-Image /Image:"C:\mount\windows" /StartComponentCleanup /ResetBase /ScratchDir:C:\Temp
+         &$dismPath /Cleanup-Image /Image:"$mntPath" /StartComponentCleanup /ResetBase /ScratchDir:C:\Temp
             }
+    ######### 5. Unmount #########
         '5'{
          cls
-         
-         #Umount image and commit changes
-         # Dism /Unmount-Image /MountDir:"C:\mount\windows" /Commit
+         #Unmount image and commit changes
+         write-host "Unmounting image and commiting change - This will take a while."
+         &$dismPath /Unmount-Image /MountDir:"$mntPath" /Commit
 
             }
     ######### Quit menu #########
